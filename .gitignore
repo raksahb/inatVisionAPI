@@ -94,3 +94,6 @@ npm-debug.log
 
 # static is a cache directory
 static/*
+
+*-venv/
+config.yml

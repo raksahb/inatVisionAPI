@@ -1,13 +1,32 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-        <meta charset="UTF-8">
-        <title>Classify Image</title>
+  <meta charset="UTF-8">
+  <title>Classify Image</title>
+  <style>
+    body {
+      font-size: 0.8em;
+    }
+  </style>
 </head>
 <body>
-        <form action="/" method="POST" enctype="multipart/form-data">
-        <input type="file" name="image" accept="image/*">
-        <button type="submit">Submit</button>
-        </form>
+  <h2>Multiclass Model</h2>
+  <form action="/" method="POST" enctype="multipart/form-data">
+    ObservationID: <input type="text" name="observation_id" />
+    <br>
+    <br>
+    or upload file: <input type="file" name="image" accept="image/*" />
+    <br>
+    <br>
+    <select name="format">
+      <option value="html">HTML</option>
+      <option value="json">JSON</option>
+    </select>
+    <br>
+    <br>
+    <button type="submit">Submit</button>
+  </form>
 </body>
 </html>
+
+

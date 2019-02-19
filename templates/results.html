@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Results</title>
+  <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lodash@4.17.11/lodash.min.js"></script>
+  <style>
+    body {
+      font-size: 0.8em;
+    }
+    a {
+      text-decoration: none;
+      color: black;
+    }
+    a:hover {
+      text-decoration: underline;
+      color: black;
+    }
+    .results {
+      white-space: nowrap;
+    }
+    .results + .results {
+      margin-top: 30px;
+      border-top: 1px solid gray;
+      padding-top: 30px;
+    }
+    .results table {
+      border: 1px solid black;
+      border-collapse: collapse;
+      display: inline-block;
+      vertical-align: top;
+    }
+    .results table.legacy, .results table tr.legacy {
+      background: #F9E79F;
+    }
+    .results table + table {
+      margin-left: 15px;
+    }
+    .results table th, .results table td {
+      border-bottom: 1px solid black;
+      vertical-align: middle;
+    }
+    .results table.bestBranch, .results table tr.highlight {
+      background: #A9CCE3;
+    }
+    .results table td.score {
+      padding: 0 5px;
+    }
+    .results table img {
+      vertical-align: middle;
+      height: 70px;
+      width: 70px;
+    }
+    .results table .photo {
+      float: left;
+    }
+    .results table .names {
+      display: table-cell;
+      height: 70px;
+      padding-left: 5px;
+      vertical-align: middle;
+    }
+    .results table .common {
+      display: block;
+    }
+  </style>
+  <script>
+    {% macro populateGlobal(results, globalName) %}
+    {% for result in results %}
+    result = {
+      id: "{{result['id']}}",
+      name: "{{result['name']}}",
+      score: {{result["score"]}}
+    };
+    {{globalName}}.push( result );
+    {% endfor %}
+    {% endmacro %}
+
+    var result;
+    var BESTSPECIES = [];
+    var BESTLEAVES = [];
+    var LEGACYSPECIES = [];
+    var KINGDOMS = [];
+    var PHYLUMS = [];
+    var CLASSES = [];
+    var ORDERS = [];
+    var FAMILIES = [];
+    var GENERA = [];
+    var BESTBRANCH = [];
+    var BESTBRANCH_LEAVES = [];
+    {{ populateGlobal( bestSpecies, "BESTSPECIES" ) }}
+    {{ populateGlobal( bestLeaves, "BESTLEAVES" ) }}
+    {{ populateGlobal( legacyResults, "LEGACYSPECIES" ) }}
+    {{ populateGlobal( bestKingdoms, "KINGDOMS" ) }}
+    {{ populateGlobal( bestPhylums, "PHYLUMS" ) }}
+    {{ populateGlobal( bestClasses, "CLASSES" ) }}
+    {{ populateGlobal( bestOrders, "ORDERS" ) }}
+    {{ populateGlobal( bestFamilies, "FAMILIES" ) }}
+    {{ populateGlobal( bestGenera, "GENERA" ) }}
+    {{ populateGlobal( bestBranch, "BESTBRANCH" ) }}
+    {{ populateGlobal( bestBranchLeaves, "BESTBRANCH_LEAVES" ) }}
+
+    var taxonResultRow = function( taxon, score, options ) {
+      options = options || { };
+      var className;
+      if ( taxon.id && options.highlightIDs && _.includes( options.highlightIDs, taxon.id.toString( ) ) ) {
+        className = "highlight";
+      } else if ( taxon.id && options.legacyIDs && _.includes( options.legacyIDs, taxon.id.toString( ) ) ) {
+        className = "legacy";
+      }
+      var row = $( "<tr class='" + className + "'>" );
+      var cell = $( "<td>" );
+      if ( taxon.default_photo && taxon.default_photo.square_url ) {
+        cell.append( $( "<div class='photo'><a href='https://www.inaturalist.org/taxa/" + taxon.id + "'><img src='" + taxon.default_photo.square_url + "'/></a></div>" ) );
+      }
+      var names = $( "<div class='names' />" );
+      if ( taxon.preferred_common_name ) {
+        names.append( $( "<span class='common' />" )
+          .append( $( "<a href='https://www.inaturalist.org/taxa/" + taxon.id + "' />" )
+          .append( _.upperFirst( taxon.preferred_common_name ) ) ) );
+      }
+      names.append( $( "<a href='https://www.inaturalist.org/taxa/" + taxon.id + "' />" ).append( taxon.name || taxon.id ) );
+      cell.append( names );
+      row.append( cell );
+      row.append( $( "<td class='score'>" + _.round( score * 100, 4 ) + "</td>" ) );
+      return row;
+    }
+
+    var simpleTable = function( results, title, taxonData, options ) {
+      options = options || { };
+      var table = $( "<table class='" + ( options.className || "" ) + "' />" );
+      table.append( $( "<th colspan=2>" + title + "</th>" ) );
+      _.each( results, d => {
+        var row = taxonResultRow( taxonData[d.id] || { id: d.id, name: d.name }, d.score, options);
+        table.append( row );
+      } );
+      return table;
+    }
+
+    $( function( ) {
+      var bestBranchIDs = BESTBRANCH.map( d => d.id );
+      var bestBranchLeavesIDs = BESTBRANCH_LEAVES.map( d => d.id );
+      var idsParam = _.compact(
+        _.filter( _.flattenDeep( [
+          bestBranchIDs,
+          bestBranchLeavesIDs,
+          BESTSPECIES.map( d => d.id ),
+          BESTLEAVES.map( d => d.id ),
+          LEGACYSPECIES.map( d => d.id ),
+          KINGDOMS.map( d => d.id ),
+          PHYLUMS.map( d => d.id ),
+          CLASSES.map( d => d.id ),
+          ORDERS.map( d => d.id ),
+          FAMILIES.map( d => d.id ),
+          GENERA.map( d => d.id )
+        ] ), id => Number( id )
+      ) ).join( "," );
+      $.ajax( {
+        dataType: "json",
+        url: "https://api.inaturalist.org/v1/taxa/" + idsParam + "?per_page=100",
+        success: function( data ) {
+          var taxonData = _.fromPairs( _.map( data.results, r => [ r.id, r ] ) );
+
+          var legacyBestAncestorIDs;
+          var legacyBestSpecies = taxonData[LEGACYSPECIES[0].id];
+          if ( legacyBestSpecies ) {
+            legacyBestAncestorIDs = legacyBestSpecies.ancestor_ids || [];
+            legacyBestAncestorIDs.push( LEGACYSPECIES[0].id );
+            legacyBestAncestorIDs = _.map( legacyBestAncestorIDs, id => id.toString( ) );
+          }
+
+          var topRow = $( ".results:first" );
+          var bottomRow = $( ".results:last" );
+          topRow.empty( );
+          topRow.append( simpleTable( BESTBRANCH, "Best complete branch", taxonData, {
+            highlightIDs: bestBranchIDs, legacyIDs: legacyBestAncestorIDs } ) );
+          topRow.append( simpleTable( BESTBRANCH_LEAVES, "Best branch from leaves", taxonData, {
+            highlightIDs: bestBranchIDs, legacyIDs: legacyBestAncestorIDs } ) );
+          topRow.append( simpleTable( BESTSPECIES, "Best species", taxonData, {
+            highlightIDs: bestBranchIDs, legacyIDs: legacyBestAncestorIDs } ) );
+          topRow.append( simpleTable( BESTLEAVES, "Leaf results", taxonData, {
+            highlightIDs: bestBranchIDs } ) );
+          topRow.append( simpleTable( LEGACYSPECIES, "Results from existing model", taxonData, {
+            className: "legacy", highlightIDs: bestBranchIDs } ) );
+
+          bottomRow.append( simpleTable( KINGDOMS, "Top Kingdoms", taxonData, {
+            highlightIDs: bestBranchIDs, legacyIDs: legacyBestAncestorIDs } ) );
+          bottomRow.append( simpleTable( PHYLUMS, "Top Phylums", taxonData, {
+            highlightIDs: bestBranchIDs, legacyIDs: legacyBestAncestorIDs } ) );
+          bottomRow.append( simpleTable( CLASSES, "Top Classes", taxonData, {
+            highlightIDs: bestBranchIDs, legacyIDs: legacyBestAncestorIDs } ) );
+          bottomRow.append( simpleTable( ORDERS, "Top Orders", taxonData, {
+            highlightIDs: bestBranchIDs, legacyIDs: legacyBestAncestorIDs } ) );
+          bottomRow.append( simpleTable( FAMILIES, "Top Families", taxonData, {
+            highlightIDs: bestBranchIDs, legacyIDs: legacyBestAncestorIDs } ) );
+          bottomRow.append( simpleTable( GENERA, "Top Genera", taxonData, {
+            highlightIDs: bestBranchIDs, legacyIDs: legacyBestAncestorIDs } ) );
+          bottomRow.append( simpleTable( BESTSPECIES, "Top Species", taxonData, {
+            highlightIDs: bestBranchIDs, legacyIDs: legacyBestAncestorIDs } ) );
+          bottomRow.append( simpleTable( LEGACYSPECIES, "Results from existing model", taxonData, {
+            className: "legacy", highlightIDs: bestBranchIDs } ) );
+        }
+      } );
+    } );
+
+  </script>
+</head>
+<body>
+  <h2>Results</h2>
+  <form action="/" method="POST" enctype="multipart/form-data">
+    ObservationID: <input type="text" name="observation_id" value="{{ observationID }}" />
+    <br>
+    <br>
+    or upload file: <input type="file" name="image" accept="image/*" />
+    <br>
+    <br>
+    <select name="format">
+      <option value="html">HTML</option>
+      <option value="json">JSON</option>
+    </select>
+    <br>
+    <br>
+    <button type="submit">Submit</button>
+  </form>
+  <h4>Run time: {{ time }}</h4>
+  {% if observationID %}
+  <h4>
+    Using observation: <a href="https://www.inaturalist.org/observations/{{ observationID }}">
+      https://www.inaturalist.org/observations/{{ observationID }}
+    </a>
+  </h4>
+  {% endif %}
+  <div class="results">
+    Fetching taxon data from API...
+  </div>
+  <div class="results" />
+</body>
+</html>
+
+
